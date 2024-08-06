@@ -72,6 +72,14 @@ module RailsAdmin
 
       delegate :primary_key, :table_name, to: :model, prefix: false
 
+      def quoted_table_name
+        model.quoted_table_name
+      end
+
+      def quote_column_name(name)
+        model.connection.quote_column_name(name)
+      end
+
       def encoding
         adapter =
           if ::ActiveRecord::Base.respond_to?(:connection_db_config)
@@ -172,7 +180,7 @@ module RailsAdmin
       # "0055" is the filter index, no use here. o is the operator, v the value
       def filter_scope(scope, filters, fields = config.list.fields.select(&:filterable?))
         filters.each_pair do |field_name, filters_dump|
-          filters_dump.each do |_, filter_dump|
+          filters_dump.each_value do |filter_dump|
             wb = WhereBuilder.new(scope)
             field = fields.detect { |f| f.name.to_s == field_name }
             value = parse_field_value(field, filter_dump[:v])
@@ -201,6 +209,8 @@ module RailsAdmin
           case @type
           when :boolean
             boolean_unary_operators
+          when :uuid
+            uuid_unary_operators
           when :integer, :decimal, :float
             numeric_unary_operators
           else
@@ -230,6 +240,7 @@ module RailsAdmin
           )
         end
         alias_method :numeric_unary_operators, :boolean_unary_operators
+        alias_method :uuid_unary_operators, :boolean_unary_operators
 
         def range_filter(min, max)
           if min && max && min == max
@@ -255,8 +266,12 @@ module RailsAdmin
         end
 
         def build_statement_for_boolean
-          return ["(#{@column} IS NULL OR #{@column} = ?)", false] if %w[false f 0].include?(@value)
-          return ["(#{@column} = ?)", true] if %w[true t 1].include?(@value)
+          case @value
+          when 'false', 'f', '0'
+            ["(#{@column} IS NULL OR #{@column} = ?)", false]
+          when 'true', 't', '1'
+            ["(#{@column} = ?)", true]
+          end
         end
 
         def column_for_value(value)

@@ -62,15 +62,15 @@ module RailsAdmin
 
         def sort_column
           if sortable == true
-            "#{abstract_model.table_name}.#{name}"
+            "#{abstract_model.quoted_table_name}.#{abstract_model.quote_column_name(name)}"
           elsif (sortable.is_a?(String) || sortable.is_a?(Symbol)) && sortable.to_s.include?('.') # just provide sortable, don't do anything smart
             sortable
           elsif sortable.is_a?(Hash) # just join sortable hash, don't do anything smart
             "#{sortable.keys.first}.#{sortable.values.first}"
-          elsif association # use column on target table
-            "#{associated_model_config.abstract_model.table_name}.#{sortable}"
+          elsif association? # use column on target table
+            "#{associated_model_config.abstract_model.quoted_table_name}.#{abstract_model.quote_column_name(sortable)}"
           else # use described column in the field conf.
-            "#{abstract_model.table_name}.#{sortable}"
+            "#{abstract_model.quoted_table_name}.#{abstract_model.quote_column_name(sortable)}"
           end
         end
 
@@ -357,7 +357,7 @@ module RailsAdmin
 
         def generic_field_help
           model = abstract_model.model_name.underscore
-          model_lookup = "admin.help.#{model}.#{name}".to_sym
+          model_lookup = :"admin.help.#{model}.#{name}"
           translated = I18n.translate(model_lookup, help: generic_help, default: [generic_help])
           (translated.is_a?(Hash) ? translated.to_a.first[1] : translated).html_safe
         end

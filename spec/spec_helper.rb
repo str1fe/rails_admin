@@ -68,6 +68,7 @@ RSpec.configure do |config|
   config.include Warden::Test::Helpers
 
   config.include Capybara::DSL, type: :request
+  config.include Capybara::RSpecMatchers, type: :request
 
   config.verbose_retry = true
   config.display_try_failure_messages = true
@@ -75,11 +76,27 @@ RSpec.configure do |config|
     example.run_with_retry retry: (ENV['CI'] && RUBY_ENGINE == 'jruby' ? 3 : 2)
   end
   config.retry_callback = proc do |example|
-    Capybara.reset! if example.metadata[:js]
+    example.metadata[:retry] = 6 if [Ferrum::DeadBrowserError, Ferrum::NoExecutionContextError, Ferrum::TimeoutError].include?(example.exception.class)
+    if example.metadata[:js]
+      attempt = 0
+      begin
+        Capybara.reset!
+      rescue Ferrum::TimeoutError, Ferrum::NoExecutionContextError
+        attempt += 1
+        raise if attempt >= 5
+
+        retry
+      end
+    end
   end
 
   config.before(:all) do
-    Webpacker.instance.compiler.compile if CI_ASSET == :webpacker
+    case CI_ASSET
+    when :webpacker
+      Webpacker.instance.compiler.compile
+    when :vite
+      ViteRuby.instance.commands.build
+    end
   end
 
   config.before do |example|
@@ -102,7 +119,7 @@ RSpec.configure do |config|
 
   CI_TARGET_ORMS.each do |orm|
     if orm == CI_ORM
-      config.filter_run_excluding "skip_#{orm}".to_sym => true
+      config.filter_run_excluding "skip_#{orm}": true
     else
       config.filter_run_excluding orm => true
     end

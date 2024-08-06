@@ -48,7 +48,7 @@ module RailsAdmin
           end
 
           register_instance_option :keep_method do
-            method_name if ::ActiveStorage.replace_on_assign_to_many
+            method_name if ::ActiveStorage.gem_version >= Gem::Version.new('7.1') || ::ActiveStorage.replace_on_assign_to_many
           end
 
           register_instance_option :delete_method do
@@ -69,6 +69,14 @@ module RailsAdmin
             }.merge(
               direct? && {data: {direct_upload_url: bindings[:view].main_app.rails_direct_uploads_url}} || {},
             )
+          end
+
+          register_instance_option :searchable do
+            false
+          end
+
+          register_instance_option :sortable do
+            false
           end
         end
       end
